@@ -132,10 +132,3 @@ instructionArgument :: IntCode -> Int -> (ArgumentMode, Int) -> Int
 instructionArgument code instructionPointer (mode, offset) = case mode of
     Value -> code!!(instructionPointer + offset)
     Pointer -> code!!(code!!(instructionPointer + offset))
-
-
-
-
-
-
-
