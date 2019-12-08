@@ -27,7 +27,7 @@ minimalIntersectionNorm _ _ [] = Nothing
 minimalIntersectionNorm _ _ [x] = Nothing
 minimalIntersectionNorm norm start (x:(y:_)) =
     (Just . minimum) (mapMaybe norm intersectionPoints)
-    where intersectionPoints = filter (not . (==) start) (wireIntersections x y)
+    where intersectionPoints = filter ((/=) start) (wireIntersections x y)
 
 
 data Direction = LEFT | RIGHT | UP | DOWN deriving(Eq, Show)
