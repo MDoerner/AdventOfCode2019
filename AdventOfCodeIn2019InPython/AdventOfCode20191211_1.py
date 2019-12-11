@@ -301,13 +301,110 @@ class GraphProcessor:
                 execution_queue.put_nowait((target_node, input_list))
 
 
+class Color (IntEnum):
+    Black = 0
+    White = 1
+
+
+Point = Tuple[int, int]
+
+class Hull:
+    def __init__(self):
+        self._tile_colors : Dict[Point, Color] = {}
+
+    def tile_color(self, point : Point) -> Color:
+        return self._tile_colors.get(point, 0)
+
+    def paint_tile(self, point : Point, color : Color):
+        self._tile_colors[point] = color
+
+    def number_of_painted_tiles(self) -> int:
+        return len(self._tile_colors)
+
+
+class Direction(IntEnum):
+    Up = 0
+    Right = 1
+    Down = 2
+    Left = 3
+
+    def next_clockwise(self):
+        return self._to_direction((self.value + 1) % 4)
+
+    def next_counterclockwise(self):
+        return self._to_direction((self.value - 1) % 4)
+
+    def _to_direction(self, number : int):
+        if number == Direction.Up:
+            return Direction.Up
+        if number == Direction.Down:
+            return Direction.Down 
+        if number == Direction.Left:
+            return Direction.Left 
+        if number == Direction.Right:
+            return Direction.Right 
+        return None
+
+
+class PaintingRobot:
+    def __init__(self, int_code_processor : BlockingIntCodeProcessor):
+        self._intCodeProcessor = int_code_processor
+
+    def paint_hull(self, code : IntCode, start_point : Point, start_direction : Direction, hull : Hull):
+        position = start_point
+        direction = start_direction
+        process_state = self._intCodeProcessor.execute_code(code, [])
+        while not process_state.has_shut_down():
+            (position, direction) = self._paint_next_tile(position, direction, process_state, hull)
+
+    # Returns the new position and direction.
+    def _paint_next_tile(self, position : Point, direction : Direction, process_state : ProcessState, hull : Hull) -> Tuple[Point, Direction]:
+        current_color = hull.tile_color(position)
+        process_state.add_input([current_color])
+        self._intCodeProcessor.continue_execution(process_state)
+        outputs = process_state.output_since_blocking_last
+        color = outputs[0]
+        turn_direction = outputs[1]
+        hull.paint_tile(position, color)
+        new_position_data = self._move(position, direction, turn_direction)
+        return new_position_data
+
+    def _move(self, position : Point, direction: Direction, turn_description : int) -> Tuple[Point, Direction]:
+        new_direction = self._turn(direction, turn_description)
+        new_position =  self._move_forward(position, new_direction)
+        return (new_position, new_direction)
+        
+    def _turn(self, direction: Direction, turn_description : int) -> Direction:
+        if turn_description == 0:
+            return direction.next_counterclockwise()
+        elif turn_description == 1:
+            return direction.next_clockwise()
+        else:
+            return direction
+
+    def _move_forward(self, position : Point, direction : Direction) -> Point:
+        (x, y) = position
+        if direction == Direction.Up:
+            return (x, y - 1)
+        if direction == Direction.Down:
+            return (x, y + 1)
+        if direction == Direction.Left:
+            return (x - 1, y)
+        if direction == Direction.Right:
+            return (x + 1, y)
+        return None
+
+
+
 def main():
     input_reader = IntCodeReader()
     processor = BlockingIntCodeProcessor()
-    input_file = "Advent20191209_1_input.txt"
+    painting_robot = PaintingRobot(processor)
+    hull = Hull()
+    input_file = "Advent20191211_1_input.txt"
     code = input_reader.int_code(input_file)
-    output_state = processor.execute_code(code, [2])
-    print(output_state.output)
+    painting_robot.paint_hull(code, (0, 0), Direction.Up, hull)
+    print(hull.number_of_painted_tiles())
 
 
 if __name__ == "__main__":

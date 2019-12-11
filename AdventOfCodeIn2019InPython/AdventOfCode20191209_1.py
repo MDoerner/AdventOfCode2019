@@ -99,7 +99,7 @@ class Memory:
         self._external_memory : Dict[int, int] = {}
 
     def read(self, pointer : int) -> int:
-        if 0 <= pointer <= self._internal_memory_size:
+        if 0 <= pointer < self._internal_memory_size:
             return self._code[pointer]
         return self._external_memory.get(pointer, 0)
 
