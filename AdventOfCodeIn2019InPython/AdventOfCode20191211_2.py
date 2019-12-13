@@ -1,3 +1,4 @@
+from __future__ import annotations
 from enum import Enum, IntEnum, auto
 from itertools import permutations
 from typing import List, Dict, Tuple, Any, IO, Optional
@@ -355,10 +356,10 @@ class Direction(IntEnum):
     Down = 2
     Left = 3
 
-    def next_clockwise(self):
+    def next_clockwise(self) -> Direction:
         return self._to_direction((self.value + 1) % 4)
 
-    def next_counterclockwise(self):
+    def next_counterclockwise(self) -> Direction:
         return self._to_direction((self.value - 1) % 4)
 
     def _to_direction(self, number : int):
