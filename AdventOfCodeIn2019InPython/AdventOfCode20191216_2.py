@@ -20,16 +20,19 @@ class  DigitSequenceReader:
 
 
 class FFTProcessor:
-    def compute_phase(self, sequence : List[int], pattern : List[int]) -> List[int]:
-        return [self._compute_digit(sequence, pattern, index + 1) for index in range(len(sequence))]
+    _pattern = [0,1,0,-1]
+
+    def compute_phase(self, sequence : List[int]) -> List[int]:
+        first_half = [self._compute_digit(sequence, self._pattern, index + 1) for index in range(len(sequence)//2+1)]
+        second_half = self.fast_second_half_phase(sequence[len(sequence)//2+1:])
+        return first_half + second_half
 
     def _compute_digit(self, sequence : List[int], pattern : List[int], digit_number : int) -> int:
         possibly_neccessary_repetitions = len(sequence)//len(pattern) + 1
         iteration_pattern = self._iteration_pattern(pattern, possibly_neccessary_repetitions, digit_number)
         next(iteration_pattern) # Skip first element.
         number = sum([x*y for x,y in zip(iteration_pattern, sequence)])
-        digits = self._to_digits(number)
-        return digits[-1]
+        return number % 10 if number >= 0 else -number % 10
 
     def _iteration_pattern(self, pattern: List[int], repetitions : int, iteration_number: int) -> Iterable[int]:
         for n in range(repetitions):
@@ -40,6 +43,16 @@ class FFTProcessor:
     def _to_digits(self, input_string : int) -> Digits:
         return [int(x) for x in str(input_string) if x != '-']
 
+    # In the second half of the sequence, the pattern is enlarged and truncated such that
+    # it consists of zeros before the index and ones thereafter.
+    def fast_second_half_phase(self, sequence : List[int]) -> List[int]:
+        reversed_output = []
+        current_digit = 0
+        for digit in reversed(sequence):
+            current_digit = (current_digit + digit) % 10
+            reversed_output.append(current_digit)
+        return list(reversed(reversed_output))
+
 
 
 def main():
@@ -48,11 +61,13 @@ def main():
     input_file = "Advent20191216_1_input.txt"
     digit_sequence = input_reader.digit_sequence(input_file)
     offset = int("".join([str(x) for x in digit_sequence[:7]]))
-    pattern = [0,1,0,-1]
+    print(offset)
     digit_sequence = list(_repeated_sequence(digit_sequence, 10000))
+    print(len(digit_sequence))
+    relevant_digits = digit_sequence[offset:]
     for n in range(100):
-        digit_sequence = fft_processor.compute_phase(digit_sequence, pattern)
-    result = int("".join([str(x) for x in digit_sequence[offset:offset + 8]]))
+        relevant_digits = fft_processor.fast_second_half_phase(relevant_digits)
+    result = int("".join([str(x) for x in relevant_digits[:8]]))
     print(result)
 
 def _repeated_sequence(sequence : List[int], times : int) -> Iterable[int]:

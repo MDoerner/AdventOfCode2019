@@ -28,8 +28,7 @@ class FFTProcessor:
         iteration_pattern = self._iteration_pattern(pattern, possibly_neccessary_repetitions, digit_number)
         next(iteration_pattern) # Skip first element.
         number = sum([x*y for x,y in zip(iteration_pattern, sequence)])
-        digits = self._to_digits(number)
-        return digits[-1]
+        return number % 10 if number >= 0 else -number % 10
 
     def _iteration_pattern(self, pattern: List[int], repetitions : int, iteration_number: int) -> Iterable[int]:
         for n in range(repetitions):
