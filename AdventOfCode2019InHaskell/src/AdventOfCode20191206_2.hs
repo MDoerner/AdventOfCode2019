@@ -4,13 +4,11 @@ module AdventOfCode20191206_2
 
 import System.IO
 import Data.List.Split
+import Data.List
 import Data.Maybe
-import Text.Read
-import Control.Monad
 import Data.Hashable
 import qualified Data.HashMap.Strict as Map
 
-type OrbitSpecification = (String,String)
 
 distanceToSanta :: IO ()
 distanceToSanta = do
@@ -21,6 +19,14 @@ distanceToSanta = do
     let requiredTransfers = length pathToSanta - 3
     print requiredTransfers
 
+
+type OrbitSpecification = (String,String)
+type ChildrenMap a = Map.HashMap a [a]
+
+children :: (Eq a, Hashable a) => ChildrenMap a -> a -> [a]
+children childrenMap = fromMaybe [] . flip Map.lookup childrenMap
+
+
 orbit :: String -> Maybe OrbitSpecification
 orbit str =
     case orbit_specification of
@@ -28,7 +34,7 @@ orbit str =
         _ -> Nothing
     where orbit_specification = splitOn ")" str
 
-orbitMap :: [OrbitSpecification] -> Map.HashMap String [String]
+orbitMap :: [OrbitSpecification] -> ChildrenMap String
 orbitMap = Map.fromListWith (++) . map (applyToSecondElement toSingleElementList)
 
 applyToSecondElement :: (b -> c) -> (a,b) -> (a,c)
@@ -37,67 +43,65 @@ applyToSecondElement f (x,y) = (x, f y)
 toSingleElementList :: a -> [a]
 toSingleElementList x = [x]
 
-childOrbitCount :: (Eq a, Hashable a) => Map.HashMap a [a] -> a -> Int
-childOrbitCount = orbitAggregate 0 length
 
-orbitAggregate :: (Eq a, Hashable a) => b -> ([a] -> b) -> Map.HashMap a [a] -> a -> b
-orbitAggregate defaultValue aggregatorFnc orbits orbitted =
-    case maybeOrbitting of
-        Nothing -> defaultValue
-        Just orbitting -> aggregatorFnc orbitting
-    where maybeOrbitting = Map.lookup orbitted orbits
+childrenCount :: (Eq a, Hashable a) => ChildrenMap a -> a -> Int
+childrenCount = childrenAggregate length
 
-decendentOrbitCount ::  (Eq a, Hashable a) => Map.HashMap a [a] -> a -> Int
-decendentOrbitCount = orbitMapAggregate 0 childOrbitCount
+childrenAggregate :: (Eq a, Hashable a) => ([a] -> b) -> ChildrenMap a -> a -> b
+childrenAggregate aggregatorFnc childrenMap = aggregatorFnc . children childrenMap
 
-orbitMapAggregate :: (Eq a, Hashable a, Num b) => b -> (Map.HashMap a [a] -> a -> b) -> Map.HashMap a [a] -> a -> b
-orbitMapAggregate defaultValue aggregator orbits orbitted =
-    aggregator orbits orbitted + orbitAggregate defaultValue (sum . map (orbitMapAggregate defaultValue aggregator orbits)) orbits orbitted
+decendantCount ::  (Eq a, Hashable a) => ChildrenMap a -> a -> Int
+decendantCount = decendantAggregate (+) childrenCount
 
-totalDecendentCount :: (Eq a, Hashable a) => Map.HashMap a [a] -> a -> Int
-totalDecendentCount = orbitMapAggregate 0 decendentOrbitCount
-
-pathFromRoot :: (Eq a, Hashable a) => Map.HashMap a [a] -> a -> a -> Maybe [a]
-pathFromRoot orbits destination root
-    | destination == root = Just [root]
-    | null childPaths = Nothing
-    | otherwise = Just (root:(head childPaths))
+decendantAggregate :: (Eq a, Hashable a) => (b -> b -> b) -> (ChildrenMap a -> a -> b) -> ChildrenMap a -> a -> b
+decendantAggregate resultFoldFnc nodeFnc childrenMap node =
+    foldl' resultFoldFnc nodeValue childResults
     where
-        maybeChildren = Map.lookup root orbits
-        childPaths = case maybeChildren of
-                        Nothing -> []
-                        Just children -> mapMaybe (pathFromRoot orbits destination) children
+        nodeValue = nodeFnc childrenMap node
+        childFnc = decendantAggregate resultFoldFnc nodeFnc childrenMap
+        childResults = map childFnc $ children childrenMap node
 
-path :: (Eq a, Hashable a) => Map.HashMap a [a] -> a -> a -> a -> Maybe [a]
-path orbits root start end =
-    let maybeStartEndPath = pathFromRoot orbits end start
+totaldecendantCount :: (Eq a, Hashable a) => ChildrenMap a -> a -> Int
+totaldecendantCount = decendantAggregate (+) decendantCount
+
+
+path :: (Eq a, Hashable a) => ChildrenMap a -> a -> a -> a -> Maybe [a]
+path childrenMap root start end =
+    let maybeStartEndPath = pathFromRoot childrenMap start end
     in if isJust maybeStartEndPath
         then maybeStartEndPath
-        else let maybeEndStartPath = pathFromRoot orbits start end
+        else let maybeEndStartPath = pathFromRoot childrenMap end start
                 in case maybeEndStartPath of
-                    Just endStartPath -> Just (reverse endStartPath)
+                    Just endStartPath -> Just $ reverse endStartPath
                     Nothing -> let
-                        rootPathToStart = pathFromRoot orbits start root
-                        rootPathToEnd = pathFromRoot orbits end root
+                        rootPathToStart = pathFromRoot childrenMap root start
+                        rootPathToEnd = pathFromRoot childrenMap root end
                         in if isNothing rootPathToStart || isNothing rootPathToEnd
                             then Nothing
                             else connectedPath (fromJust rootPathToStart) (fromJust rootPathToEnd)
 
+pathFromRoot :: (Eq a, Hashable a) => ChildrenMap a -> a -> a -> Maybe [a]
+pathFromRoot childrenMap root destination
+    | destination == root = Just [root]
+    | null childPaths = Nothing
+    | otherwise = Just $ root:(head childPaths)
+    where
+        rootChildren = children childrenMap root
+        pathFromNewRoot newRoot = pathFromRoot childrenMap newRoot destination
+        childPaths = mapMaybe pathFromNewRoot rootChildren
+
 connectedPath :: Eq a => [a] -> [a] -> Maybe [a]
 connectedPath rootToStart rootToEnd =
-    if isJust middle
-        then Just ((reverse middleToStart) ++ [fromJust middle] ++ middleToEnd)
-        else Nothing
-    where (middle, middleToStart, middleToEnd) = distinctPathPieces rootToStart rootToEnd
+    case pathPieces of
+        Nothing -> Nothing
+        Just (middle, middleToStart, middleToEnd) ->
+            Just $ (reverse middleToStart) ++ [middle] ++ middleToEnd
+    where pathPieces = distinctPathPieces rootToStart rootToEnd
 
-distinctPathPieces :: Eq a => [a] -> [a] -> (Maybe a, [a], [a])
-distinctPathPieces [x] [y] = if x == y then (Just x, [], []) else (Nothing, [], [])
-distinctPathPieces (x1:(y1:z1)) (x2:(y2:z2))
-  | x1 /= x2 = (Nothing, [], [])
-  | y1 /= y2 = (Just x1, y1:z1, y2:z2)
+distinctPathPieces :: Eq a => [a] -> [a] -> Maybe (a, [a], [a])
+distinctPathPieces [x] [y] = if x == y then Just (x, [], []) else Nothing
+distinctPathPieces (x1:y1:z1) (x2:y2:z2)
+  | x1 /= x2 = Nothing
+  | y1 /= y2 = Just (x1, y1:z1, y2:z2)
   | otherwise = distinctPathPieces (y1:z1) (y2:z2)
-distinctPathPieces _ _ = (Nothing, [], [])
-
-
-
-
+distinctPathPieces _ _ = Nothing
