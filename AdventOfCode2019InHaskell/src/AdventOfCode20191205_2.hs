@@ -11,30 +11,10 @@ system5Diagnostic :: IO ()
 system5Diagnostic = do
     inputText <- readFile "Advent20191205_1_input.txt"
     let code = toIntCode inputText
-    --let testState = ProcessState (MemoryState code) [5] [] (Just 0)
-    --testEndState <- continueExecutionWithPrint testState
     let outputState = executeCode code [5]
     let output = outputs outputState
     print output
 
-
--- for debugging 
-
-continueExecutionWithPrint :: ProcessState -> IO ProcessState
-continueExecutionWithPrint state@(ProcessState _ _ _ Nothing) = return state
-continueExecutionWithPrint state =
-    case intCodeInstruction state of
-        Nothing -> return state
-        Just instruction -> let (newState, operationBlocked) = executeInstruction state instruction
-                                                    in if operationBlocked
-                                                        then return newState
-                                                        else do
-                                                            print (outputs newState)
-                                                            print (instructionPointer newState)
-                                                            let nextInstruction = intCodeInstruction newState
-                                                            print nextInstruction
-                                                            print (instructionArguments newState (fromJust nextInstruction))
-                                                            continueExecutionWithPrint newState
 
 
 type IntCode = [Int]
