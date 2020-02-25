@@ -10,8 +10,6 @@ import Data.Maybe
 import qualified Data.HashMap.Strict as Map
 import Control.Monad.State
 import Data.Digits
-import Data.Traversable
-import Debug.Trace
 
 
 sensorBoost :: IO ()
@@ -356,6 +354,12 @@ executeNextInstruction = do
             return Nothing
         Just instruction -> executeInstruction instruction
 
+executeInstruction :: IntCodeInstruction -> State ProcessState (Maybe Int)
+executeInstruction instruction = do
+    arguments <- instructionArguments instruction
+    let operation = associatedOperation (opcode instruction)
+        in operation arguments
+
 
 intCodeInstruction :: State ProcessState (Maybe IntCodeInstruction)
 intCodeInstruction = do
@@ -384,12 +388,6 @@ argumentModesFromSpecifier 0 = Just []
 argumentModesFromSpecifier x
     | x < 0 = Nothing
     | otherwise = Just (map toArgumentMode (reverse (digits 10 x)))
-
-executeInstruction :: IntCodeInstruction -> State ProcessState (Maybe Int)
-executeInstruction instruction = do
-    arguments <- instructionArguments instruction
-    let operation = associatedOperation (opcode instruction)
-        in operation arguments
 
 instructionArguments :: IntCodeInstruction -> State ProcessState Arguments
 instructionArguments instruction = do
